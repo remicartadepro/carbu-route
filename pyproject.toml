@@ -1,0 +1,20 @@
+[project]
+name = "carbu-route"
+version = "0.1.0"
+description = "Prix des carburants sur un trajet et sur une carte, d'après les données ouvertes de l'État"
+requires-python = ">=3.13"
+license = "MIT"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
