@@ -29,7 +29,7 @@ header {
   padding: 8px 16px;
   border-bottom: 1px solid var(--bordure);
 }
-header h1 { font-size: 1.1rem; margin: 0 8px 0 0; }
+header h1 { font-size: 1.1rem; margin: 0 8px 0 0; display: flex; align-items: center; gap: 8px; }
 #etat { color: var(--discret); font-size: 0.9rem; }
 main { flex: 1; display: flex; min-height: 0; }
 #carte { flex: 1; }
