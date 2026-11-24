@@ -2,6 +2,7 @@
 
 const ZOOM_MIN = 10;        // en dessous, la zone est trop grande pour une requête
 const RAYON_MAX_KM = 25;
+const GRIS_PERIME = "#9a9aa2"; // prix de plus de 15 jours (calculé par le serveur)
 
 const carte = L.map("carte").setView([46.6, 2.4], 6);
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -40,6 +41,7 @@ function bulle(station, carburants) {
   for (const [code, info] of Object.entries(station.prix)) {
     const li = document.createElement("li");
     li.textContent = `${carburants[code] || code} : ${formaterPrix(info.prix)} (${formaterDate(info.maj)})`;
+    if (info.perime) li.className = "perime";
     ul.appendChild(li);
   }
   div.appendChild(ul);
@@ -83,9 +85,10 @@ function afficher(stations, carburant) {
   etat.textContent = `${stations.length} station(s) avec du ${nom} dans la zone.`;
   if (stations.length === 0) return;
 
-  const prix = stations.map((s) => s.prix[carburant].prix);
-  const min = Math.min(...prix);
-  const max = Math.max(...prix);
+  // L'échelle de couleurs ne tient compte que des prix frais (moins de 15 jours).
+  const frais = stations.filter((s) => !s.prix[carburant].perime).map((s) => s.prix[carburant].prix);
+  const min = Math.min(...frais);
+  const max = Math.max(...frais);
 
   for (const station of stations) {
     const p = station.prix[carburant];
@@ -93,15 +96,16 @@ function afficher(stations, carburant) {
       radius: 9,
       color: "#222",
       weight: 1,
-      fillColor: couleur(p.prix, min, max),
-      fillOpacity: 0.9,
+      fillColor: p.perime ? GRIS_PERIME : couleur(p.prix, min, max),
+      fillOpacity: p.perime ? 0.6 : 0.9,
     })
-      .bindTooltip(formaterPrix(p.prix))
+      .bindTooltip(formaterPrix(p.prix) + (p.perime ? " (ancien)" : ""))
       .bindPopup(() => bulle(station, window.carburants))
       .addTo(calque);
 
     if (liste.children.length < 20) {
       const li = document.createElement("li");
+      if (p.perime) li.className = "perime";
       const montant = document.createElement("span");
       montant.className = "prix";
       montant.textContent = formaterPrix(p.prix);
@@ -109,7 +113,7 @@ function afficher(stations, carburant) {
       lieu.textContent = `${station.adresse}, ${station.ville}`;
       const maj = document.createElement("div");
       maj.className = "maj";
-      maj.textContent = `mis à jour le ${formaterDate(p.maj)}`;
+      maj.textContent = `mis à jour le ${formaterDate(p.maj)}` + (p.perime ? " · ancien, à vérifier" : "");
       li.append(montant, lieu, maj);
       li.addEventListener("click", () => {
         carte.setView([station.lat, station.lon], Math.max(carte.getZoom(), 14));

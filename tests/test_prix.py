@@ -1,5 +1,7 @@
 """Tests hors ligne : l'API officielle est remplacée par un faux transport httpx."""
 
+from datetime import UTC, datetime
+
 import httpx
 import pytest
 from fastapi.testclient import TestClient
@@ -9,9 +11,12 @@ from app.prix import (
     TAILLE_PAGE,
     ClientPrix,
     construire_filtre,
+    est_perime,
     normaliser,
     trier_par_prix,
 )
+
+MAINTENANT = datetime(2026, 11, 24, 12, 0, tzinfo=UTC)
 
 # Forme d'une ligne du flux v2 (valeurs inventées).
 LIGNE_A = {
@@ -67,8 +72,23 @@ def test_filtre_borne_le_rayon_et_refuse_un_carburant_inconnu():
 
 
 def test_tri_moins_cher_d_abord():
-    stations = [normaliser(LIGNE_A), normaliser(LIGNE_B)]
+    stations = [normaliser(LIGNE_A, MAINTENANT), normaliser(LIGNE_B, MAINTENANT)]
     assert [s.id for s in trier_par_prix(stations, "e85")] == ["2", "1"]
+
+
+def test_perime_au_dela_de_15_jours():
+    assert not est_perime("2026-11-10T12:00:00+00:00", MAINTENANT)  # 14 jours
+    assert est_perime("2026-11-08T12:00:00+00:00", MAINTENANT)  # 16 jours
+    assert est_perime(None, MAINTENANT)
+    assert est_perime("pas une date", MAINTENANT)
+
+
+def test_un_prix_perime_passe_apres_les_prix_frais():
+    vieille = dict(LIGNE_B, id=3, e85_prix=0.5, e85_maj="2026-10-06T11:31:00+00:00")
+    stations = [normaliser(x, MAINTENANT) for x in (LIGNE_A, LIGNE_B, vieille)]
+    assert stations[2].prix["e85"]["perime"] is True
+    assert stations[0].prix["e85"]["perime"] is False
+    assert [s.id for s in trier_par_prix(stations, "e85")] == ["2", "1", "3"]
 
 
 def faux_client(pages):

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -32,6 +33,7 @@ CARBURANTS: dict[str, str] = {
 RAYON_MAX_KM = 50
 TAILLE_PAGE = 100  # maximum accepté par l'API Explore pour /records
 DUREE_CACHE_S = 600  # le flux ne bouge pas plus vite que toutes les 10 min
+PERIME_APRES = timedelta(days=15)  # au-delà, le prix est affiché en gris et classé après
 
 
 @dataclass
@@ -48,6 +50,23 @@ class Station:
         info = self.prix.get(carburant)
         return info["prix"] if info else None
 
+    def est_perime(self, carburant: str) -> bool:
+        info = self.prix.get(carburant)
+        return bool(info and info["perime"])
+
+
+def est_perime(maj: str | None, maintenant: datetime) -> bool:
+    """Un prix sans date, ou plus vieux que PERIME_APRES, n'est plus fiable."""
+    if not maj:
+        return True
+    try:
+        date = datetime.fromisoformat(maj)
+    except ValueError:
+        return True
+    if date.tzinfo is None:
+        date = date.replace(tzinfo=UTC)
+    return maintenant - date > PERIME_APRES
+
 
 def _coordonnee(valeur: Any, limite: float) -> float | None:
     """Convertit une coordonnée ; l'ancien format les multiplie par 100 000."""
@@ -59,8 +78,11 @@ def _coordonnee(valeur: Any, limite: float) -> float | None:
     return nombre
 
 
-def normaliser(enregistrement: dict[str, Any]) -> Station | None:
+def normaliser(
+    enregistrement: dict[str, Any], maintenant: datetime | None = None
+) -> Station | None:
     """Transforme une ligne brute de l'API en Station (None si inutilisable)."""
+    maintenant = maintenant or datetime.now(UTC)
     geom = enregistrement.get("geom") or {}
     lat = geom.get("lat")
     lon = geom.get("lon")
@@ -75,7 +97,8 @@ def normaliser(enregistrement: dict[str, Any]) -> Station | None:
         valeur = enregistrement.get(f"{code}_prix")
         if valeur is None:
             continue
-        prix[code] = {"prix": float(valeur), "maj": enregistrement.get(f"{code}_maj")}
+        maj = enregistrement.get(f"{code}_maj")
+        prix[code] = {"prix": float(valeur), "maj": maj, "perime": est_perime(maj, maintenant)}
 
     return Station(
         id=str(enregistrement.get("id", "")),
@@ -100,10 +123,14 @@ def construire_filtre(lat: float, lon: float, rayon_km: float, carburant: str) -
 
 
 def trier_par_prix(stations: list[Station], carburant: str) -> list[Station]:
-    """Les moins chères d'abord ; une station sans ce carburant passe à la fin."""
+    """Prix frais du moins cher au plus cher, puis prix périmés, puis stations sans ce carburant."""
     return sorted(
         stations,
-        key=lambda s: (s.prix_de(carburant) is None, s.prix_de(carburant) or 0.0),
+        key=lambda s: (
+            s.prix_de(carburant) is None,
+            s.est_perime(carburant),
+            s.prix_de(carburant) or 0.0,
+        ),
     )
 
 
