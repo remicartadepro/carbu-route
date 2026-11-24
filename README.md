@@ -13,7 +13,7 @@ Projet personnel d'apprentissage, hébergé dans un homelab : API REST en Python
 - ✅ **Liste** des 20 stations les moins chères de la zone.
 - ✅ **Prix périmés** : un prix de plus de 15 jours est affiché en gris et classé après les prix frais.
 - ✅ **Trajet** : départ, jusqu'à 4 étapes et arrivée ; le tracé s'affiche, avec les stations à moins de 1, 2, 5 ou 10 km de la route, leur position (« au km 12 du trajet ») et leur écart à la route.
-- 🚧 **Release** : image publiée sur `ghcr.io` à chaque version (étape 3).
+- ✅ **Release** : à chaque version (tag `vX.Y.Z`), l'image est testée, construite et publiée sur `ghcr.io`.
 
 ## Architecture
 
@@ -24,8 +24,11 @@ Navigateur ──▶ carbu-route (FastAPI, conteneur Docker)
    │                 └──▶ Géoplateforme IGN : géocodage et itinéraire (data.geopf.fr)
    └──▶ fonds de carte OpenStreetMap
 
-GitHub : push / PR ──▶ GitHub Actions (lint, tests, build et démarrage de l'image)
+GitHub : PR ──▶ CI (lint, tests, build et démarrage de l'image)
+        release vX.Y.Z ──▶ CI, puis image publiée sur ghcr.io ◀── docker compose pull (serveur)
 ```
+
+Le déploiement est en **pull** : c'est le serveur qui va chercher l'image, GitHub n'a aucun accès entrant vers lui.
 
 | Chemin | Rôle |
 |---|---|
@@ -35,16 +38,24 @@ GitHub : push / PR ──▶ GitHub Actions (lint, tests, build et démarrage de
 | `app/static/` | La page : carte Leaflet, sélecteur de carburant, liste |
 | `tests/` | Tests pytest **hors ligne** (l'API externe est simulée) |
 | `.github/workflows/ci.yml` | Lint (ruff), tests (pytest), construction et test de démarrage de l'image |
+| `.github/workflows/release.yml` | Sur un tag `vX.Y.Z` : relance la CI, puis publie l'image (`X.Y.Z`, `X.Y`, `latest`) sur GHCR |
+| `compose.yaml` | Déploiement de l'image publiée, version et adresse d'écoute lues dans `.env` (modèle : `.env.exemple`) |
 
 ## Lancer
 
-Avec Docker :
+Avec l'image publiée (dans un dossier contenant `compose.yaml`) :
 
 ```bash
-docker compose up -d --build
+cp .env.exemple .env
 ```
 
-Puis ouvrir `http://ADRESSE-DE-LA-MACHINE:8080`. La géolocalisation (« Me localiser ») ne marche qu'en HTTPS, par exemple derrière un reverse proxy.
+```bash
+docker compose pull && docker compose up -d
+```
+
+Puis ouvrir `http://127.0.0.1:8080` (adresse d'écoute réglable par `CARBU_BIND` dans `.env`). La géolocalisation (« Me localiser ») ne marche qu'en HTTPS, par exemple derrière un reverse proxy. `/healthz` renvoie la version qui tourne.
+
+Mettre à jour : changer `CARBU_TAG` dans `.env`, puis relancer la même commande.
 
 En développement :
 
@@ -63,6 +74,18 @@ python3 -m venv .venv
 ```bash
 .venv/bin/ruff check . && .venv/bin/pytest -q
 ```
+
+Construire l'image depuis le code local :
+
+```bash
+CARBU_TAG=dev docker compose -f compose.yaml -f compose.build.yaml up -d --build
+```
+
+## Publier une version
+
+1. Fusionner les changements dans `main` (CI verte).
+2. Sur GitHub : *Releases → Draft a new release*, créer le tag `vX.Y.Z` (versionnage sémantique), décrire les changements, *Publish release*.
+3. Le workflow *Release* relance les vérifications puis publie `ghcr.io/remicartadepro/carbu-route:X.Y.Z`.
 
 ## Exemple d'appel
 

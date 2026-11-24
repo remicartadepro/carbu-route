@@ -1,0 +1,9 @@
+# Surcharge pour le développement : construit l'image depuis le code local.
+#   CARBU_TAG=dev docker compose -f compose.yaml -f compose.build.yaml up -d --build
+services:
+  carbu-route:
+    build:
+      context: .
+      args:
+        VERSION: ${CARBU_TAG:-dev}
+    image: carbu-route:${CARBU_TAG:-dev}

@@ -1,11 +1,16 @@
+# Déploiement : l'image publiée sur GHCR par la release, à la version écrite dans .env.
+#   CARBU_TAG  : version à faire tourner, sans le « v » (ex. 0.3.0) ; obligatoire
+#   CARBU_BIND : adresse d'écoute sur la machine hôte (127.0.0.1 par défaut, donc
+#                joignable seulement en local ; mettre l'IP que le reverse proxy utilise)
+# Mise à jour : changer CARBU_TAG dans .env, puis « docker compose pull && docker compose up -d ».
+# Construction locale (développement) : CARBU_TAG=dev docker compose -f compose.yaml -f compose.build.yaml up -d --build
 services:
   carbu-route:
-    build: .
-    image: carbu-route:local
+    image: ghcr.io/remicartadepro/carbu-route:${CARBU_TAG:?indiquer CARBU_TAG dans .env}
     container_name: carbu-route
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "${CARBU_BIND:-127.0.0.1}:8080:8080"
     read_only: true
     tmpfs:
       - /tmp

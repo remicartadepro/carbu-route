@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_call: # réutilisé par release.yml : pas de publication sans tests verts
 
 permissions:
   contents: read

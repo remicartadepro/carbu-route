@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import asdict
 from pathlib import Path
 from typing import Annotated
@@ -16,6 +17,7 @@ from app.prix import CARBURANTS, RAYON_MAX_KM, ClientPrix
 from app.trajet import DETOUR_MAX_KM, AdresseIntrouvable, ClientTrajet
 
 DOSSIER_STATIQUE = Path(__file__).parent / "static"
+VERSION = os.environ.get("APP_VERSION", "dev")
 
 app = FastAPI(
     title="carbu-route",
@@ -23,7 +25,7 @@ app = FastAPI(
         "Prix des carburants autour d'un point ou le long d'un trajet, "
         "d'après les données ouvertes de l'État."
     ),
-    version="0.2.0",
+    version=VERSION,
 )
 app.mount("/static", StaticFiles(directory=DOSSIER_STATIQUE), name="static")
 
@@ -46,8 +48,8 @@ def accueil() -> FileResponse:
 
 @app.get("/healthz")
 def sante() -> dict[str, str]:
-    """Sonde de vie, pour le HEALTHCHECK de Docker et la supervision."""
-    return {"statut": "ok"}
+    """Sonde de vie, pour le HEALTHCHECK de Docker et la supervision ; donne la version."""
+    return {"statut": "ok", "version": VERSION}
 
 
 @app.get("/api/carburants")
