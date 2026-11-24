@@ -20,7 +20,26 @@
   <main>
     <div id="carte"></div>
     <aside>
-      <h2>Les moins chères ici</h2>
+      <form id="form-trajet">
+        <h2>Trajet</h2>
+        <div id="adresses"></div>
+        <div class="actions">
+          <button id="ajout-etape" type="button">+ Étape</button>
+          <label>Détour max
+            <select id="detour">
+              <option value="1">1 km</option>
+              <option value="2" selected>2 km</option>
+              <option value="5">5 km</option>
+              <option value="10">10 km</option>
+            </select>
+          </label>
+        </div>
+        <div class="actions">
+          <button type="submit">Calculer</button>
+          <button id="effacer" type="button">Effacer</button>
+        </div>
+      </form>
+      <h2 id="titre-liste">Les moins chères ici</h2>
       <ol id="liste"></ol>
     </aside>
   </main>
