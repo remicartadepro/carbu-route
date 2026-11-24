@@ -45,6 +45,19 @@ aside h2 { font-size: 1rem; }
 .prix { font-weight: 600; font-variant-numeric: tabular-nums; }
 .maj { color: var(--discret); font-size: 0.8rem; }
 .perime { opacity: 0.55; }
+#form-trajet { border-bottom: 1px solid var(--bordure); padding-bottom: 12px; }
+#adresses input {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 6px 8px;
+  font: inherit;
+  color: var(--texte);
+  background: var(--fond);
+  border: 1px solid var(--bordure);
+  border-radius: 4px;
+}
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
 @media (max-width: 700px) {
   main { flex-direction: column; }
   aside { width: auto; height: 35%; border-left: 0; border-top: 1px solid var(--bordure); }

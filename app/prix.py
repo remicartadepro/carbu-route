@@ -30,6 +30,8 @@ CARBURANTS: dict[str, str] = {
     "gplc": "GPLc",
 }
 
+URL_EXPORT = URL_API.removesuffix("/records") + "/exports/json"
+
 RAYON_MAX_KM = 50
 TAILLE_PAGE = 100  # maximum accepté par l'API Explore pour /records
 DUREE_CACHE_S = 600  # le flux ne bouge pas plus vite que toutes les 10 min
@@ -122,6 +124,18 @@ def construire_filtre(lat: float, lon: float, rayon_km: float, carburant: str) -
     )
 
 
+def construire_filtre_cadre(
+    lat_min: float, lon_min: float, lat_max: float, lon_max: float, carburant: str
+) -> str:
+    """Clause `where` : stations dans un rectangle (deux coins) qui vendent ce carburant."""
+    if carburant not in CARBURANTS:
+        raise ValueError(f"carburant inconnu : {carburant}")
+    return (
+        f"in_bbox(geom, {lat_min}, {lon_min}, {lat_max}, {lon_max}) "
+        f"and {carburant}_prix is not null"
+    )
+
+
 def trier_par_prix(stations: list[Station], carburant: str) -> list[Station]:
     """Prix frais du moins cher au plus cher, puis prix périmés, puis stations sans ce carburant."""
     return sorted(
@@ -142,13 +156,33 @@ class ClientPrix:
         self._duree_cache_s = duree_cache_s
         self._cache: dict[tuple, tuple[float, list[Station]]] = {}
 
+    def _depuis_cache(self, cle: tuple) -> list[Station] | None:
+        en_cache = self._cache.get(cle)
+        if en_cache and time.monotonic() - en_cache[0] < self._duree_cache_s:
+            return en_cache[1]
+        return None
+
+    def stations_dans_cadre(
+        self, lat_min: float, lon_min: float, lat_max: float, lon_max: float, carburant: str
+    ) -> list[Station]:
+        """Toutes les stations d'un rectangle, en une requête (export, sans pagination)."""
+        cle = ("cadre", *(round(x, 3) for x in (lat_min, lon_min, lat_max, lon_max)), carburant)
+        if (en_cache := self._depuis_cache(cle)) is not None:
+            return en_cache
+
+        filtre = construire_filtre_cadre(lat_min, lon_min, lat_max, lon_max, carburant)
+        reponse = self._client.get(URL_EXPORT, params={"where": filtre})
+        reponse.raise_for_status()
+        stations = [s for s in map(normaliser, reponse.json()) if s is not None]
+        self._cache[cle] = (time.monotonic(), stations)
+        return stations
+
     def stations_autour(
         self, lat: float, lon: float, rayon_km: float, carburant: str
     ) -> list[Station]:
         cle = (round(lat, 3), round(lon, 3), round(rayon_km, 1), carburant)
-        en_cache = self._cache.get(cle)
-        if en_cache and time.monotonic() - en_cache[0] < self._duree_cache_s:
-            return en_cache[1]
+        if (en_cache := self._depuis_cache(cle)) is not None:
+            return en_cache
 
         filtre = construire_filtre(lat, lon, rayon_km, carburant)
         stations: list[Station] = []
