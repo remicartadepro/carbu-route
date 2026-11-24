@@ -10,9 +10,15 @@ WORKDIR /srv
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
+RUN useradd --system --uid 10001 --no-create-home appli
+
+# Version injectée par la CI au moment de la release (tag Git vX.Y.Z), « dev » sinon.
+# Placée après l'installation des dépendances pour ne pas invalider leur cache.
+ARG VERSION=dev
+ENV APP_VERSION=${VERSION}
+
 COPY app ./app
 
-RUN useradd --system --uid 10001 --no-create-home appli
 USER appli
 
 EXPOSE 8080

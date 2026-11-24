@@ -137,5 +137,5 @@ def test_api_refuse_un_carburant_inconnu(api):
 
 
 def test_sante_et_page(api):
-    assert api.get("/healthz").json() == {"statut": "ok"}
+    assert api.get("/healthz").json() == {"statut": "ok", "version": "dev"}
     assert "carbu-route" in api.get("/").text
